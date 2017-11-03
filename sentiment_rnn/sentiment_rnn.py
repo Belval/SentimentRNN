@@ -4,8 +4,8 @@ import tensorflow as tf
 from .data_manager import DataManager
 
 class SentimentRNN(object):
-    def __init__(train_test_ratio, data_folder, model_folder):
-        self.__data_manager = DataManager(train_test_ratio, data_folder)
+    def __init__(train_test_ratio, embedding_path, data_path, model_path):
+        self.__data_manager = DataManager(train_test_ratio, embedding_path, data_path)
         self.__model_folder = model_folder
 
     def sentiment_rnn(self):

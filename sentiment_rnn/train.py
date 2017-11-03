@@ -1,6 +1,10 @@
 import argparse
+import sys
 
-from word2vec import Word2Vec
+from sentiment_rnn import SentimentRNN
+
+def parse_arguments():
+
 
 def main():
     return
