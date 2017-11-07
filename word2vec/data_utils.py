@@ -1,4 +1,5 @@
 import collections
+import uuid
 import numpy as np
 
 def read_chunk(filename):
@@ -13,26 +14,27 @@ def read_chunk(filename):
                 break
             yield data.split()[:-1]
 
-def build_dataset(filename, n_words):
+def build_dataset(filename, dict_filename, n_words):
     """
         Build our dataset in 3 steps
     """
 
     data = []
+    data_list = []
     word_dict = {}
     dictionary = {'UNK':0,}
-    i = 0
+    chunk_index = 0
     # First reading
     print('Building dictionary')
     for chunk in read_chunk(filename):
-        if i % 10 == 0:
-            print(str(i) + ' chunk processed')
+        if chunk_index % 10 == 0:
+            print(str(chunk_index) + ' chunk processed')
         for word, c in collections.Counter(chunk).most_common(n_words - 1):
             if not word in word_dict:
                 word_dict[word] = c
             else:
                 word_dict[word] += c
-        i += 1
+        chunk_index += 1
 
     for k in sorted(word_dict, key=word_dict.get, reverse=True):
         if len(dictionary) < n_words:
@@ -40,26 +42,40 @@ def build_dataset(filename, n_words):
         else:
             break
 
-    i = 0
+    chunk_index = 0
+    wc = 0
+    # Each array is a billion unsigned int, if we get bigger than that, we'll save it and create a new one
+    current_np_array = np.zeros(1000000000, dtype='uint32')
     # Second reading
     print('Building dataset')
     for chunk in read_chunk(filename):
-        if i % 10 == 0:
-            print(str(i) + ' chunk processed')
+        if chunk_index % 10 == 0:
+            print(str(chunk_index) + ' chunk processed')
         for word in chunk:
-            index = dictionary.get(word, 0)
-            data.append(index)
-        i += 1
+            current_np_array[wc % 1000000000] = dictionary.get(word, 0)
+            wc += 1
+            if wc % 1000000000 == 0:
+                data_list.append(str(uuid.uuid4()) + '.npy')
+                np.save(data_list[-1], current_np_array)
+                current_np_array = np.zeros(1000000000, dtype='uint32')
 
-    reversed_dictionary = dict(zip(dictionary.values(), dictionary.keys()))
-    return data, dictionary, reversed_dictionary
+        chunk_index += 1
 
-def generate_batch(batch_size, num_skips, skip_window):
+    # Saving dictionary (as a list of word)
+    with open(dict_filename, 'w') as dict_file:
+        for k in sorted(dictionary, key=word_dict.get):
+            dict_file.write(k + '\n')
+
+    data = np.load(data_list[0])
+    return data, data_list
+
+def generate_batch(batch_size, num_skips, skip_window, data, data_list):
     """
         Create a batch
     """
 
     global data_index
+    global data_list_index
     assert batch_size % num_skips == 0
     assert num_skips <= 2 * skip_window
     batch = np.ndarray(shape=(batch_size), dtype=np.int32)
@@ -68,6 +84,8 @@ def generate_batch(batch_size, num_skips, skip_window):
     buffer = collections.deque(maxlen=span)
     if data_index + span > len(data):
         data_index = 0
+        data_list_index = data_list_index + 1 if data_list_index + 1 < len(data_list) else 0
+        data = np.load(data_list[data_list_index])
     buffer.extend(data[data_index:data_index + span])
     data_index += span
     for i in range(batch_size // num_skips):

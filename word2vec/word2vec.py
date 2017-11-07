@@ -40,6 +40,13 @@ def parse_arguments():
         default="data.npy"
     )
     parser.add_argument(
+        "output_dict",
+        type=str,
+        nargs="?",
+        help="The file where the dict will be saved",
+        default="dict.txt"
+    )
+    parser.add_argument(
         "-vs",
         "--vocabulary_size",
         type=int,
@@ -108,9 +115,10 @@ def main():
     num_skips = args.num_skips
     num_sampled = args.num_sampled
 
-    data, dictionary, reverse_dictionary = build_dataset(args.input_file, vocabulary_size)
+    data, file_list = build_dataset(args.input_file, args.output_dict, vocabulary_size)
 
     data_index = 0
+    data_list_index = 0
 
     graph = tf.Graph()
 
@@ -151,7 +159,7 @@ def main():
 
         average_loss = 0
         for step in xrange(num_steps):
-            batch_inputs, batch_labels = generate_batch(batch_size, num_skips, skip_window)
+            batch_inputs, batch_labels = generate_batch(batch_size, num_skips, skip_window, data, data_list)
 
             feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
 
