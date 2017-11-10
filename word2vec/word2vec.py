@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import math
 import os
+import errno
 import sys
 import random
 from tempfile import gettempdir
@@ -13,9 +14,11 @@ import numpy as np
 from six.moves import urllib
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
+from datetime import datetime
 
 from data_utils import (
     build_dataset,
+    get_precomputed_dataset,
     generate_batch
 )
 
@@ -27,17 +30,18 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Generate word embedding from a corpus.')
 
     parser.add_argument(
-        "input_file",
-        type=str,
-        nargs="?",
-        help="The file containing a corpus",
-    )
-    parser.add_argument(
         "output_file",
         type=str,
         nargs="?",
         help="The file where the resulting embedding will be saved",
         default="data.npy"
+    )
+    parser.add_argument(
+        "-i"
+        "--input_file",
+        type=str,
+        nargs="?",
+        help="The file containing a corpus",
     )
     parser.add_argument(
         "output_dict",
@@ -94,6 +98,20 @@ def parse_arguments():
         help="Number of negative examples to sample",
         default=64
     )
+    parser.add_argument(
+        "-pd",
+        "--precomputed_data_files",
+        nargs="+",
+        help="A list of .npy files containing the dataset (if it was precomputed)"
+    )
+    parser.add_argument(
+        "-ld",
+        "--log_dir",
+        type=str,
+        nargs="?",
+        help="The folder were the training loss will be recorded. Will be created if not pre-existing"
+    )
+
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -114,8 +132,27 @@ def main():
     skip_window = args.skip_window
     num_skips = args.num_skips
     num_sampled = args.num_sampled
+    precomputed_data_files = args.precomputed_data_files
+    log_dir = args.log_dir
 
-    data, file_list = build_dataset(args.input_file, args.output_dict, vocabulary_size)
+    if log_dir:
+        now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        log_dir = '{}/run_{}/'.format(log_dir, now)
+        try:
+            os.makedirs(log_dir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
+    data = None
+    data_list = None
+
+    if len(precomputed_data_files) == 0:
+        print('No precomputed data given!')
+        data, data_list = build_dataset(args.input_file, args.output_dict, vocabulary_size)
+    else:
+        print('Loading .npy files')
+        data, data_list = get_precomputed_dataset(precomputed_data_files)
 
     data_index = 0
     data_list_index = 0
@@ -152,6 +189,10 @@ def main():
 
         init = tf.global_variables_initializer()
 
+        loss_summary = tf.summary.scalar('Loss', loss)
+
+        file_writer = tf.summary.FileWriter(log_dir, tf.get_default_graph())
+
     num_steps = 100001
 
     with tf.Session(graph=graph) as session:
@@ -159,7 +200,7 @@ def main():
 
         average_loss = 0
         for step in xrange(num_steps):
-            batch_inputs, batch_labels = generate_batch(batch_size, num_skips, skip_window, data, data_list)
+            batch_inputs, batch_labels = generate_batch(batch_size, num_skips, skip_window, data, data_list, data_index, data_list_index)
 
             feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
 
@@ -172,6 +213,10 @@ def main():
                     average_loss /= 2000
                 # The average loss is an estimate of the loss over the last 2000 batches.
                 print('Average loss at step ', step, ': ', average_loss)
+                file_writer.add_summary(
+                    loss_summary.eval(feed_dict=feed_dict),
+                    step
+                )
                 average_loss = 0
 
         np.save(args.output_file, normalized_embeddings.eval())

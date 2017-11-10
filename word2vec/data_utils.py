@@ -1,5 +1,6 @@
 import collections
 import uuid
+import random
 import numpy as np
 
 def read_chunk(filename):
@@ -69,13 +70,20 @@ def build_dataset(filename, dict_filename, n_words):
     data = np.load(data_list[0])
     return data, data_list
 
-def generate_batch(batch_size, num_skips, skip_window, data, data_list):
+def get_precomputed_dataset(data_files):
+    """
+        If the data files are already computed, you can skip processing by calling
+        this instead of build_dataset
+    """
+
+    data = np.load(data_files[0])
+    return data, data_files
+
+def generate_batch(batch_size, num_skips, skip_window, data, data_list, data_index, data_list_index):
     """
         Create a batch
     """
 
-    global data_index
-    global data_list_index
     assert batch_size % num_skips == 0
     assert num_skips <= 2 * skip_window
     batch = np.ndarray(shape=(batch_size), dtype=np.int32)
