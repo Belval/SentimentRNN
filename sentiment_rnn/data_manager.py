@@ -1,5 +1,8 @@
+import re
+import numpy as np
+
 class DataManager(object):
-    def __init__(train_test_ratio, batch_size, embedding_path, data_path, wordlist_path):
+    def __init__(self, batch_size, embedding_path, wordlist_path, examples_path, train_test_ratio):
         if train_test_ratio > 1.0 or train_test_ratio < 0:
             raise Exception('Incoherent ratio!')
 
@@ -7,30 +10,33 @@ class DataManager(object):
         self.batch_size = batch_size
         self.current_train_offset = 0
         self.current_test_offset = 0
-        self.test_offset = -1
-        self.embedding_path = embedding_path
-        self.data_path = data_path
+        self.embedding = np.load(embedding_path)
+        self.examples_path = examples_path
         self.wordlist_path = wordlist_path
         self.wordlist = self.__load_wordlist(wordlist_path)
         self.data, self.data_len = self.__load_data()
+        self.test_offset = int(train_test_ratio * self.data_len)
 
     def __load_wordlist(self, wordlist_path):
         with open(wordlist_path, 'r') as wlf:
             return [line.replace('\n', '') for line in wlf.readlines()]
 
     def __load_data(self):
+        print('Loading data')
+
         data = []
-        
-        with open(data_path, 'r') as df:
-            for line in df.readlines():
+
+        with open(self.examples_path, 'r') as df:
+            for line in df.readlines()[0:250]:
                 token_index = line.index(';')
-                data.append(line[0:token_index], convert_to_vector(line[token_index+1:]))
+                data.append((float(line[0:token_index]), self.convert_to_vector(line[token_index+1:])))
 
         return (data, len(data))
 
-    def convert_to_vector(sentence):
+    def convert_to_vector(self, sentence):
         vecs = []
-        for word in sentence.split(' ').split('\''):
+
+        for word in re.split('\W+', sentence):
             try:
                 # We know that word!
                 vecs.append(self.embedding[self.wordlist.index(word), :])
@@ -39,8 +45,10 @@ class DataManager(object):
                 vecs.append(self.embedding[0, :])
         return vecs
 
-    def get_next_train_batch():
+    def get_input_size(self):
+        return len(self.embedding[0, :])
 
+    def get_next_train_batch(self):
         old_offset = self.current_train_offset
 
         new_offset = self.current_train_offset + self.batch_size
@@ -50,9 +58,14 @@ class DataManager(object):
 
         self.current_train_offset = new_offset
 
-        return self.data[old_offset:new_offset]
+        raw_batch_y, raw_batch_x = zip(*self.data[old_offset:new_offset])
 
-    def get_next_test_batch():
+        batch_y = np.reshape(np.array(raw_batch_y), (-1, 1))
+        batch_x = np.array(raw_batch_x)
+
+        return batch_y, batch_x
+
+    def get_next_test_batch(self):
         old_offset = self.current_test_offset
 
         new_offset = self.current_test_offset + self.batch_size

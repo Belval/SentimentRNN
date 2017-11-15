@@ -1,18 +1,21 @@
+import os
+import time
 import numpy as np
 import tensorflow as tf
 
-from tf.nn.rnn_cell import GRUCell
+from tensorflow.contrib.rnn import GRUCell
 
-from .data_manager import DataManager
+from data_manager import DataManager
 
 class SentimentRNN(object):
-    def __init__(train_test_ratio, embedding_path, wordlist_path, model_path):
-        self.__data_manager = DataManager(train_test_ratio, embedding_path, wordlist_path)
-        self.__model_folder = model_folder
+    def __init__(self, batch_size, embedding_path, wordlist_path, examples_path, model_path, max_length, train_test_ratio):
+        self.__data_manager = DataManager(batch_size, embedding_path, wordlist_path, examples_path, train_test_ratio)
+        self.__model_path = model_path
+        self.__training_name = str(int(time.time()))
 
-    def sentiment_rnn(self, input_size):
-        input_units = tf.placeholder(tf.float32, (None, None, input_size))
-        output_units = tf.placeholder(tf.float32, (None, None, 1))
+    def sentiment_rnn(self, session, max_length, input_size):
+        input_units = tf.placeholder(tf.float32, (None, max_length, input_size))
+        output_unit = tf.placeholder(tf.float32, (None, 1))
 
         gru_cell = GRUCell(input_size)
 
@@ -35,12 +38,28 @@ class SentimentRNN(object):
 
         merged = tf.summary.merge_all()
 
-        writer = tf.summary.FileWriter(os.path.join(args[1], training_uuid), graph=session.graph)
+        writer = tf.summary.FileWriter(os.path.join(self.__model_path, self.__training_name), graph=session.graph)
 
-        return output_units, loss
+        return input_units, output_unit, loss
 
     def train(self, iteration_count):
-        return
+        with tf.Session() as sess:
+            input_units, output_unit, loss = self.sentiment_rnn(sess, self.__data_manager.get_input_size())
+            print('Training')
+            for i in range(iteration_count):
+                batch_y, batch_x = self.__data_manager.get_next_train_batch()
+                print(batch_x)
+                print(batch_y)
+                loss = sess.run(
+                    [loss],
+                    feed_dict={
+                        input_units: batch_x,
+                        output_unit: batch_y
+                    }
+                )
+        return None
 
     def test(self):
-        return
+
+
+        return None
