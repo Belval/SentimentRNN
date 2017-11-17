@@ -9,12 +9,13 @@ from data_manager import DataManager
 
 class SentimentRNN(object):
     def __init__(self, batch_size, embedding_path, wordlist_path, examples_path, model_path, max_length, train_test_ratio):
-        self.__data_manager = DataManager(batch_size, embedding_path, wordlist_path, examples_path, train_test_ratio)
+        self.__data_manager = DataManager(batch_size, embedding_path, wordlist_path, examples_path, max_length, train_test_ratio)
         self.__model_path = model_path
         self.__training_name = str(int(time.time()))
 
     def sentiment_rnn(self, session, max_length, input_size):
         input_units = tf.placeholder(tf.float32, (None, max_length, input_size))
+        sequence_lengths = tf.placeholder(tf.float32, (None, 1))
         output_unit = tf.placeholder(tf.float32, (None, 1))
 
         gru_cell = GRUCell(input_size)
@@ -40,20 +41,29 @@ class SentimentRNN(object):
 
         writer = tf.summary.FileWriter(os.path.join(self.__model_path, self.__training_name), graph=session.graph)
 
-        return input_units, output_unit, loss
+        init = tf.global_variables_initializer()
+
+        return input_units, sequence_lengths, output_unit, loss, init
 
     def train(self, iteration_count):
         with tf.Session() as sess:
-            input_units, output_unit, loss = self.sentiment_rnn(sess, self.__data_manager.get_input_size())
+            input_units, sequence_lengths, output_unit, loss, init = self.sentiment_rnn(
+                sess,
+                self.__data_manager.max_length,
+                self.__data_manager.get_input_size()
+            )
+            init.run()
             print('Training')
             for i in range(iteration_count):
-                batch_y, batch_x = self.__data_manager.get_next_train_batch()
+                batch_y, batch_sl, batch_x = self.__data_manager.get_next_train_batch()
                 print(batch_x)
+                print(batch_sl)
                 print(batch_y)
                 loss = sess.run(
                     [loss],
                     feed_dict={
                         input_units: batch_x,
+                        sequence_lengths: batch_sl,
                         output_unit: batch_y
                     }
                 )

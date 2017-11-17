@@ -2,11 +2,15 @@ import re
 import numpy as np
 
 class DataManager(object):
-    def __init__(self, batch_size, embedding_path, wordlist_path, examples_path, train_test_ratio):
+    def __init__(self, batch_size, embedding_path, wordlist_path, examples_path, max_length, train_test_ratio):
         if train_test_ratio > 1.0 or train_test_ratio < 0:
             raise Exception('Incoherent ratio!')
 
+        if max_length < 1:
+            raise Exception('Max length should be above 0')
+
         self.train_test_ratio = train_test_ratio
+        self.max_length = max_length
         self.batch_size = batch_size
         self.current_train_offset = 0
         self.current_test_offset = 0
@@ -29,21 +33,25 @@ class DataManager(object):
         with open(self.examples_path, 'r') as df:
             for line in df.readlines()[0:250]:
                 token_index = line.index(';')
-                data.append((float(line[0:token_index]), self.convert_to_vector(line[token_index+1:])))
+                data.append((float(line[0:token_index]), *self.convert_to_vector(line[token_index+1:])))
 
         return (data, len(data))
 
     def convert_to_vector(self, sentence):
-        vecs = []
+        vecs = np.zeros((self.max_length, self.get_input_size()))
 
-        for word in re.split('\W+', sentence):
+        seq_len = 0
+
+        for i, word in enumerate(re.split('\W+', sentence)):
             try:
                 # We know that word!
-                vecs.append(self.embedding[self.wordlist.index(word), :])
+                vecs[i, :] = self.embedding[self.wordlist.index(word), :]
             except:
                 # We don't know that word!
-                vecs.append(self.embedding[0, :])
-        return vecs
+                vecs[i, :] = self.embedding[0, :]
+            seq_len = i
+
+        return vecs, seq_len
 
     def get_input_size(self):
         return len(self.embedding[0, :])
@@ -58,12 +66,24 @@ class DataManager(object):
 
         self.current_train_offset = new_offset
 
-        raw_batch_y, raw_batch_x = zip(*self.data[old_offset:new_offset])
+        raw_batch_y, raw_batch_x, raw_batch_sl = zip(*self.data[old_offset:new_offset])
 
-        batch_y = np.reshape(np.array(raw_batch_y), (-1, 1))
-        batch_x = np.array(raw_batch_x)
+        batch_y = np.reshape(
+            np.array(raw_batch_y),
+            (-1, 1)
+        )
 
-        return batch_y, batch_x
+        batch_sl = np.reshape(
+            np.array(raw_batch_sl),
+            (-1, 1)
+        )
+
+        batch_x = np.reshape(
+            np.array(raw_batch_x),
+            (-1, self.max_length, self.get_input_size())
+        )
+
+        return batch_y, batch_sl, batch_x
 
     def get_next_test_batch(self):
         old_offset = self.current_test_offset
