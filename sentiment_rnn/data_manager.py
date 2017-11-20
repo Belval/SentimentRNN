@@ -31,7 +31,7 @@ class DataManager(object):
         data = []
 
         with open(self.examples_path, 'r') as df:
-            for line in df.readlines()[0:250]:
+            for line in df.readlines()[0:2000]:
                 token_index = line.index(';')
                 data.append((float(line[0:token_index]), *self.convert_to_vector(line[token_index+1:])))
 
@@ -57,33 +57,33 @@ class DataManager(object):
         return len(self.embedding[0, :])
 
     def get_next_train_batch(self):
-        old_offset = self.current_train_offset
+        while not self.current_train_offset + self.batch_size > self.test_offset:
+            old_offset = self.current_train_offset
 
-        new_offset = self.current_train_offset + self.batch_size
+            new_offset = self.current_train_offset + self.batch_size
 
-        if new_offset > self.test_offset:
-            return []
+            self.current_train_offset = new_offset
 
-        self.current_train_offset = new_offset
+            raw_batch_y, raw_batch_x, raw_batch_sl = zip(*self.data[old_offset:new_offset])
 
-        raw_batch_y, raw_batch_x, raw_batch_sl = zip(*self.data[old_offset:new_offset])
+            batch_y = np.reshape(
+                np.array(raw_batch_y),
+                (-1)
+            )
 
-        batch_y = np.reshape(
-            np.array(raw_batch_y),
-            (-1, 1)
-        )
+            batch_sl = np.reshape(
+                np.array(raw_batch_sl),
+                (-1)
+            )
 
-        batch_sl = np.reshape(
-            np.array(raw_batch_sl),
-            (-1, 1)
-        )
+            batch_x = np.reshape(
+                np.array(raw_batch_x),
+                (-1, self.max_length, self.get_input_size())
+            )
 
-        batch_x = np.reshape(
-            np.array(raw_batch_x),
-            (-1, self.max_length, self.get_input_size())
-        )
+            yield batch_y, batch_sl, batch_x
 
-        return batch_y, batch_sl, batch_x
+        self.current_train_offset = 0
 
     def get_next_test_batch(self):
         old_offset = self.current_test_offset

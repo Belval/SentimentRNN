@@ -68,7 +68,7 @@ def parse_arguments():
         type=int,
         nargs="?",
         help="Size of a batch",
-        default=128
+        default=64
     )
     parser.add_argument(
         "-it",
@@ -117,6 +117,7 @@ def main():
         )
 
         sentiment_rnn.train(args.iteration_count)
+        sentiment_rnn.save()
 
     if args.test:
         if sentiment_rnn is None:
