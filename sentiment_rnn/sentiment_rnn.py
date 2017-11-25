@@ -42,7 +42,7 @@ class SentimentRNN(object):
         idx = sequence_lengths - 1
         last_rnn_output = tf.gather(tf.reshape(rnn_outputs, [-1, input_size]), idx)
 
-        W = tf.Variable(tf.random_uniform([128, 1]))
+        W = tf.Variable(tf.random_uniform([input_size, 1]))
 
         predicted_output = tf.reshape(tf.matmul(last_rnn_output, W), [self.__data_manager.batch_size], name='predictions')
 
@@ -87,7 +87,7 @@ class SentimentRNN(object):
                 print('Ieration loss: ' + str(iter_loss))
         return None
 
-    def test(self):
+    def test(self, text):
 
 
         return None
