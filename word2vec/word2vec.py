@@ -37,7 +37,7 @@ def parse_arguments():
         default="data.npy"
     )
     parser.add_argument(
-        "-i"
+        "-i",
         "--input_file",
         type=str,
         nargs="?",
@@ -147,7 +147,7 @@ def main():
     data = None
     data_list = None
 
-    if len(precomputed_data_files) == 0:
+    if precomputed_data_files is None or len(precomputed_data_files) == 0:
         print('No precomputed data given!')
         data, data_list = build_dataset(args.input_file, args.output_dict, vocabulary_size)
     else:

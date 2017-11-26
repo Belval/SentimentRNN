@@ -1,9 +1,29 @@
 # SentimentRNN
-A recurrent neural network that uses word embeddings to do sentiment analysis in both French and English. It uses Google's word2vec implementation written in C through the very good `word2vec` module.
+A recurrent neural network that uses word embeddings to do sentiment analysis in both French and English. It uses an heavily modified version of the word2vec implementation shown on TensorFlow's website.
 
 ## Creating word embeddings (word2vec.py folder)
 
-From a terminal, enter `python3 word2vec.py embedding.npy wordlist.txt -i [YOUR_CORPUS] -vs 50000 -es 128 -bs 64`
+From a terminal, enter `python3 word2vec.py -i [YOUR_CORPUS] -vs 100000 -es 256 -ld logs/`
+
+You should first see something like this which is the dictionary being built:
+
+![1](images/building_dataset_1.png "1")
+
+That can go on for a while depending on the size of your corpus.
+
+Then it will parse the whole corpus again to create the training sample files.
+
+![2](images/building_dataset_2.png "2")
+
+You should see .npy files appear in the folder with UUID as name (Obviously don't delete them)
+
+Finally it will start the actual training. You can monitor the training using TensorBoard (if you specified a log directory).
+
+![3](images/training.png "3")
+
+Aaaaaaand you're done! Your embedding was saved as `data.npy` or whatever name you gave it!
+
+Want to train again? Use `-pd` instead of `-i` to skip the first two steps!
 
 ## Training
 

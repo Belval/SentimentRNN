@@ -76,7 +76,7 @@ def parse_arguments():
         type=int,
         nargs="?",
         help="How many iteration in training",
-        default=50000
+        default=10
     )
     parser.add_argument(
         "-ml",
@@ -101,7 +101,7 @@ def main():
     args = parse_arguments()
 
     if not args.train and not args.test:
-        print("If we are not training, and not testing, what us the point?")
+        print("If we are not training, and not testing, what is the point?")
 
     sentiment_rnn = None
 

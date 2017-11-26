@@ -14,6 +14,13 @@ class SentimentRNN(object):
         self.__training_name = str(int(time.time()))
         self.__session = tf.Session()
 
+        with self.__session.as_default():
+            self.__input_units, self.__sequence_lengths, self.__output_unit, self.__loss, self.__init, self.__predicted_output, self.__train = self.sentiment_rnn(
+                self.__data_manager.max_length,
+                self.__data_manager.get_input_size()
+            )
+            self.__init.run()
+
     def sentiment_rnn(self, max_length, input_size):
         input_units = tf.placeholder(tf.float32, (None, max_length, input_size))
         sequence_lengths = tf.placeholder(tf.int32, (self.__data_manager.batch_size))
@@ -66,30 +73,42 @@ class SentimentRNN(object):
 
     def train(self, iteration_count):
         with self.__session.as_default():
-            input_units, sequence_lengths, output_unit, loss, init, predicted_output, train = self.sentiment_rnn(
-                self.__data_manager.max_length,
-                self.__data_manager.get_input_size()
-            )
-            init.run()
             print('Training')
             for i in range(iteration_count):
                 iter_loss = 0
+                total_error = 0
+                example_count = 0
                 for batch_y, batch_sl, batch_x in self.__data_manager.get_next_train_batch():
                     _, loss_value, pred_output = self.__session.run(
-                        [train, loss, predicted_output],
+                        [self.__train, self.__loss, self.__predicted_output],
                         feed_dict={
-                            input_units: batch_x,
-                            sequence_lengths: batch_sl,
-                            output_unit: batch_y
+                            self.__input_units: batch_x,
+                            self.__sequence_lengths: batch_sl,
+                            self.__output_unit: batch_y
                         }
                     )
+                    example_count += len(batch_y)
+                    total_error += np.sum(abs(batch_y - pred_output))
                     iter_loss += loss_value
-                print('Ieration loss: ' + str(iter_loss))
+                print('[{}] Iteration loss: {} Iteration total error: {} (about {} per example)'.format(i, iter_loss, total_error, total_error / example_count))
         return None
 
-    def test(self, text):
-
-
+    def test(self, text=None):
+        with self.__session.as_default():
+            print('Testing')
+            total_error = 0
+            example_count = 0
+            for batch_y, batch_sl, batch_x in self.__data_manager.get_next_test_batch():
+                pred_output = self.__session.run(
+                    [self.__predicted_output],
+                    feed_dict={
+                        self.__input_units: batch_x,
+                        self.__sequence_lengths: batch_sl
+                    }
+                )
+                example_count += len(batch_y)
+                total_error += np.sum(abs(batch_y - pred_output))
+            print('Error on test set: {} (about {} for every example)'.format(total_error, total_error / example_count))
         return None
 
     def save(self, path=None):
