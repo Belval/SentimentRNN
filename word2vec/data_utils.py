@@ -1,6 +1,7 @@
 import collections
 import uuid
 import random
+import nltk
 import numpy as np
 
 def read_chunk(filename):

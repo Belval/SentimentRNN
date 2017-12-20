@@ -3,7 +3,7 @@
 """
 
 import argparse
-
+import re
 import numpy as np
 import nltk
 from nltk.corpus import stopwords
@@ -48,6 +48,8 @@ def load_data(path):
     reviews = []
     with open(path, 'r') as f:
         for i, l in enumerate(f):
+            if i >= 10000:
+                break
             try:
                 split_line = l.split(';')
                 reviews.append((';'.join(split_line[1:]), 'positive' if int(l[0]) >= 3 else 'negative'))
@@ -66,12 +68,15 @@ def main():
     print("{} reviews loaded".format(len(reviews)))
     reviews_features = []
 
+    print("Building stopword list")
+    stopwords_list = set(stopwords.words("english") + stopwords.words("french"))
+
     print("Building word dict")
     words = nltk.FreqDist(
         [
             w.lower()
             for r in list(zip(*reviews))[0] for w in word_tokenize(r)
-            if w not in stopwords.words("english") and w not in stopwords.words("french")
+            if w not in stopwords_list
         ]
     )
 
@@ -81,7 +86,11 @@ def main():
     word_features = dict([(w, i) for i, w in enumerate(selected_words)])
 
     print("Parsing reviews")
+    i = 0
     for review, emotion in reviews:
+        i += 1
+        if i % 10000 == 0:
+            print(i)
         word_vec = np.zeros(args.word_count)
         for w in word_tokenize(review):
             try:
